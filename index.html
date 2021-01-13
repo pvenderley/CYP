@@ -1,0 +1,192 @@
+<!--/* Copyright © 2003-2007 Rustici Software, LLC  All Rights Reserved. www.scorm.com */-->
+<HTML>
+	<HEAD>
+		<meta name='viewport' content='initial-scale = 1, minimum-scale = 1, maximum-scale = 1'/>
+		<meta http-equiv="x-ua-compatible" content="IE=9">
+		<TITLE>Captivate E-Learning Course</TITLE>
+		<script language="JavaScript1.2" src="scormdriver.js"></script>
+		<script language="JavaScript1.2">
+		var g_bIsInternetExplorer = navigator.appName.indexOf("Microsoft") != -1;
+		var SD = window; // setup a reference to the SD
+		// this is the flag for triggering the custom comms
+		SD.AICC_USE_CUSTOM_COMMS = true;
+		//ShowDebugWindow();
+		var g_bIsResponsiveLMSPreview = false;
+		var num_tries = 0;
+		var total_tries = 10;
+		var checker;
+		
+		var currentWindow = window;
+		var parentWindow = window.parent;
+		var topWindow = window.top;
+		try
+		{
+			if(parentWindow.document)
+				var cmt = "tring to access document of parent window";
+		}
+		catch(e)
+		{
+			parentWindow = currentWindow;
+		}
+		try
+		{
+			if(topWindow.document)
+				var cmt = "tring to access document of top window";
+		}
+		catch(e)
+		{
+			topWindow = currentWindow;
+			try
+			{
+				while(topWindow.parent.document)
+					topWindow = topWindow.parent;
+			}
+			catch(e)
+			{}
+		}
+		
+		function LoadContent()
+		{
+			if(scormdriver_content.LoadContent == undefined )
+			{
+				if(scormdriver_content.preview && scormdriver_content.preview.LoadContent)
+				{
+					scormdriver_content.preview.LoadContent();
+				}
+			}
+			else
+				scormdriver_content.LoadContent();
+		}
+		
+		function DoCPExit()
+		{
+			if(window != parentWindow && parentWindow && parentWindow.hasOwnProperty("DoCPExit"))
+			{
+				parentWindow.DoCPExit();
+			}
+			else
+			{
+				topWindow.close();
+			}
+		}
+		
+		
+		function OnLoad_Activities()
+		{
+			var lFrameset = document.getElementById("myFrameset");
+			var newFrame = document.createElement("frame");
+			newFrame.id = "scormdriver_content";
+			newFrame.name = "scormdriver_content";			
+			var lParamString = window.location.toString().split("?")[1];
+			if(lParamString != undefined)
+				lParamString = "?" + lParamString;
+			else
+				lParamString = "";
+			if(g_IsLMSPreview)
+				newFrame.scrolling = "no";
+			newFrame.src="index_AICC.html" + lParamString;
+			if(newFrame.src.search("rindex.html") != -1)
+			{
+				g_bIsResponsiveLMSPreview = true;
+			}
+			lFrameset.insertBefore(newFrame,lFrameset.firstChild);
+		}
+		
+		//To be called by HTML5 content when loaded.
+		function HTMLContentLoadedCallback()
+		{
+			//console.log("Starting checker");
+			checker = setInterval(CheckForAICCComm,100);
+		}
+		
+		
+		function defineCustomAICCCommunication()
+		{
+			// override this function from the SCORM Driver to handle the custom comms
+			//aghose: this one is in AICCComm 
+			window.CustomAICCCommunication = function(strAICCURL, strPostData, strRequestType, strCallBack) 
+			{
+					WriteToDebug('in MakeHttpPostCall');
+					WriteToDebug('Details of Call:');
+					WriteToDebug("AICCURL:"+String(strAICCURL));
+					WriteToDebug("Post Data:"+strPostData);
+					WriteToDebug("RequestType:"+strRequestType);
+					WriteToDebug("CallBack:"+strCallBack);
+					WriteToDebug("---End Details of Call---");
+					
+					//Uncomment this line to run across domain for HTML5
+					//document.getElementById('AICCPostRouter_HTML').contentWindow.makeHTTPPost(String(strAICCURL), strPostData, strRequestType, strCallBack);
+					
+					return;
+				}
+		}
+		//for adobe
+		function InitializeCalls()
+		{
+			WriteToDebug("In InitializeCalls()");
+		}
+
+		function CheckForAICCComm(){
+			
+			num_tries += 1;
+			WriteToDebug("CP: In CheckForAICCComm, trial num: " + num_tries);
+			
+			if(num_tries > total_tries){
+				WriteToDebug("CP: In CheckForAICCComm exceeded total tries...aborting further calls to this function.");
+				clearInterval(checker);
+				return;
+			}
+			
+			if(typeof(window.AICCComm.MakeGetParamRequest) == 'function'){
+				WriteToDebug("CP: AICCComm has been initialized.");
+				clearInterval(checker);
+				defineCustomAICCCommunication();
+				if(scormdriver_content.cp == undefined || scormdriver_content.cp.LoadActivities == undefined)
+				{
+					if(scormdriver_content.preview && scormdriver_content.preview.cp){
+						scormdriver_content.preview.cp.LoadActivities();
+					}
+				}
+				else
+					scormdriver_content.cp.LoadActivities();
+				
+			}
+		}
+		
+	
+		//create the callback that we're passing through
+		window.ProcessLMSResult = function(requestType, responseStr)
+		{
+			WriteToDebug("In ProcessLMSResult with:"+requestType+","+responseStr);
+			//catch the callback from the SWF and pass it along to the AICCComm frame
+			window.AICCComm.ProcessLMSResult(requestType, responseStr);			
+		};
+		
+		function UnloadActivities()
+		{
+			if(scormdriver_content.cp == undefined || scormdriver_content.cp.UnloadActivties == undefined)
+			{
+				if(scormdriver_content.preview && scormdriver_content.preview.cp)
+				{
+					scormdriver_content.preview.cp.UnloadActivties();
+				}
+			}
+			else
+				scormdriver_content.cp.UnloadActivties();
+		}
+		</script>
+	</HEAD>
+	<frameset id="myFrameset" rows="90%,0%,0%,0%,10%" onload="OnLoad_Activities()" border="0" onbeforeunload="UnloadActivities()" onunload="UnloadActivities()">
+		<!--frame id ="scormdriver_content" name="scormdriver_content" src="index_AICC.html"-->
+		<frame name="AICCComm" src="AICCComm.html">
+		<frame name="rusticisoftware_aicc_results" src="blank.html">
+		<frame name="NothingFrame" src="blank.html">
+		<frame name='debugWin' class='debugWin' id="debugWin">
+		<!--Uncomment below line to run across domain for HTML5 -->
+		<!--frame id="AICCPostRouter_HTML" name="AICCPostRouter_HTML" src="AICCPostRouter_HTML.html"-->
+		
+	</frameset>
+	<noframes>
+		Your browser must be able to view frames for this content to display.
+	</noframes>
+</HTML>
